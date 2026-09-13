@@ -22,7 +22,20 @@ interface Inspection {
 export default function Dashboard() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [filter, setFilter] = useState("ALL");
+  const [showForm, setShowForm] = useState(false);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    inspector_id: 101,
+    hazard_category: "Slope Stability",
+    location_zone: "Bench 3",
+    days_since_last_check: 15,
+    latitude: 23.7957,
+    longitude: 86.4304,
+    description: "",
+  });
 
   const fetchData = () => {
     setLoading(true);
@@ -38,16 +51,41 @@ export default function Dashboard() {
       });
   };
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await axios.post(`${API_BASE}/inspections/`, formData);
+      alert(`✅ Ticket Created! AI Evaluated Severity: ${res.data.severity}`);
+      setFormData({
+        inspector_id: 101,
+        hazard_category: "Slope Stability",
+        location_zone: "Bench 3",
+        days_since_last_check: 15,
+        latitude: 23.7957,
+        longitude: 86.4304,
+        description: "",
+      });
+      setShowForm(false);
+      fetchData();
+    } catch (err) {
+      console.error("Submission failed:", err);
+      alert("Failed to submit inspection. Please verify backend connectivity.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const resolveTicket = (id: number) => {
     axios
       .patch(`${API_BASE}/inspections/${id}/resolve`)
       .then(() => fetchData())
       .catch((err) => console.error("Action error:", err));
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const total = inspections.length;
   const criticalCount = inspections.filter((i) => i.severity === "Critical" && !i.is_resolved).length;
@@ -70,13 +108,131 @@ export default function Dashboard() {
             Real-time Statutory Compliance, DGMS Safety Logging & AI Risk Monitoring
           </p>
         </div>
-        <button
-          onClick={fetchData}
-          className="mt-3 md:mt-0 px-4 py-2 bg-slate-800 text-white rounded text-sm hover:bg-slate-700 transition"
-        >
-          Refresh Feed
-        </button>
+        <div className="mt-4 md:mt-0 flex gap-2">
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="px-4 py-2 bg-blue-600 text-white font-medium rounded text-sm hover:bg-blue-500 transition shadow-sm"
+          >
+            {showForm ? "Close Form" : "+ Log Field Inspection"}
+          </button>
+          <button
+            onClick={fetchData}
+            className="px-4 py-2 bg-slate-800 text-white rounded text-sm hover:bg-slate-700 transition"
+          >
+            Refresh Feed
+          </button>
+        </div>
       </header>
+
+      {/* Web Inspection Form */}
+      {showForm && (
+        <section className="mb-6 bg-white p-6 rounded-lg shadow border border-blue-200">
+          <h2 className="text-lg font-bold text-slate-900 mb-1">Direct Web Inspection Form</h2>
+          <p className="text-xs text-slate-500 mb-4">
+            Submissions run through the cloud Random Forest classifier to determine risk severity in real time.
+          </p>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Hazard Category</label>
+              <select
+                value={formData.hazard_category}
+                onChange={(e) => setFormData({ ...formData, hazard_category: e.target.value })}
+                className="w-full border border-slate-300 rounded p-2 text-sm bg-white"
+              >
+                <option value="Slope Stability">Slope Stability</option>
+                <option value="Haul Road Damage">Haul Road Damage</option>
+                <option value="Gas Leakage / Methane">Gas Leakage / Methane</option>
+                <option value="Dust & Ventilation">Dust & Ventilation</option>
+                <option value="Electrical / Equipment">Electrical / Equipment</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Location Zone</label>
+              <select
+                value={formData.location_zone}
+                onChange={(e) => setFormData({ ...formData, location_zone: e.target.value })}
+                className="w-full border border-slate-300 rounded p-2 text-sm bg-white"
+              >
+                <option value="Bench 3">Bench 3</option>
+                <option value="Pit 1 North">Pit 1 North</option>
+                <option value="Overburden Dump B">Overburden Dump B</option>
+                <option value="Underground Shaft 2">Underground Shaft 2</option>
+                <option value="Crusher Unit">Crusher Unit</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Days Overdue (Since Last Check)</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.days_since_last_check}
+                onChange={(e) => setFormData({ ...formData, days_since_last_check: Number(e.target.value) })}
+                className="w-full border border-slate-300 rounded p-2 text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Latitude</label>
+              <input
+                type="number"
+                step="any"
+                value={formData.latitude}
+                onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
+                className="w-full border border-slate-300 rounded p-2 text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Longitude</label>
+              <input
+                type="number"
+                step="any"
+                value={formData.longitude}
+                onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
+                className="w-full border border-slate-300 rounded p-2 text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Inspector ID</label>
+              <input
+                type="number"
+                value={formData.inspector_id}
+                onChange={(e) => setFormData({ ...formData, inspector_id: Number(e.target.value) })}
+                className="w-full border border-slate-300 rounded p-2 text-sm"
+                required
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Hazard Observation Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={2}
+                placeholder="Enter field findings, crack width, methane ppm reading, etc."
+                className="w-full border border-slate-300 rounded p-2 text-sm"
+                required
+              />
+            </div>
+
+            <div className="md:col-span-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-6 py-2 bg-emerald-600 text-white font-semibold rounded text-sm hover:bg-emerald-500 transition disabled:opacity-50"
+              >
+                {submitting ? "Analyzing Risk with AI..." : "Submit Inspection"}
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       {/* KPI Cards */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -106,7 +262,7 @@ export default function Dashboard() {
             Live topographic view centered on active Dhanbad/Jharia mining belts (23.7957° N, 86.4304° E).
           </p>
         </div>
-        <div className="h-[360px] w-full rounded-lg overflow-hidden border border-slate-300 shadow-inner">
+        <div className="h-[320px] w-full rounded-lg overflow-hidden border border-slate-300 shadow-inner">
           <iframe
             title="Coal Mine GIS Map"
             width="100%"
@@ -143,7 +299,7 @@ export default function Dashboard() {
               <th className="py-3 px-4">Category</th>
               <th className="py-3 px-4">Days Overdue</th>
               <th className="py-3 px-4">AI Severity</th>
-              <th className="py-3 px-4">Coordinates</th>
+              <th className="py-3 px-4">Description</th>
               <th className="py-3 px-4">Status</th>
               <th className="py-3 px-4 text-center">Action</th>
             </tr>
@@ -179,9 +335,7 @@ export default function Dashboard() {
                       {item.severity}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-xs font-mono text-slate-500">
-                    {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}
-                  </td>
+                  <td className="py-3 px-4 max-w-xs truncate">{item.description}</td>
                   <td className="py-3 px-4">
                     <span className={`text-xs font-semibold ${item.is_resolved ? "text-green-600" : "text-rose-600"}`}>
                       {item.is_resolved ? "Resolved" : "Open Breach"}
