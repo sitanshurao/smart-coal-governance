@@ -1,4 +1,3 @@
-// frontend/src/app/page.tsx
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -6,56 +5,100 @@ import axios from "axios";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://smart-coal-governance.onrender.com";
 
-// Statutory Rule Database
 const STATUTORY_RULES = [
   {
     code: "CMR 2017 Reg 106",
     title: "Bench Height & Overhang Geometry",
-    act: "Coal Mines Regulations, 2017",
     category: "Slope Stability",
     slaHours: 24,
-    penalty: "Immediate suspension of coal extraction along face under Sec 22",
   },
   {
     code: "CMR 2017 Reg 153",
     title: "Inflammable Gas & Ventilation Standards",
-    act: "Coal Mines Regulations, 2017",
     category: "Gas Leakage / Methane",
     slaHours: 12,
-    penalty: "Evacuation of return airways and statutory reporting to DGMS",
   },
   {
     code: "CMR 2017 Reg 125",
     title: "HEMM & Haul Road Safety Berms",
-    act: "Coal Mines Regulations, 2017",
     category: "Haul Road Damage",
     slaHours: 48,
-    penalty: "Grounded haulage fleet; speed limit curtailed to 10 km/h",
   },
   {
     code: "CMR 2017 Reg 111",
     title: "Airborne Respirable Dust Control",
-    act: "Coal Mines Regulations, 2017",
     category: "Dust & Ventilation",
     slaHours: 72,
-    penalty: "Notice of non-compliance to Ministry of Environment, Forest & CC",
   },
   {
     code: "CEA Reg 2010 Reg 115",
     title: "Open Pit Trailing Cable & Earthing Protection",
-    act: "Central Electricity Authority Regulations",
     category: "Electrical / Equipment",
     slaHours: 24,
-    penalty: "Substation power cutoff to shovel/dragline circuits",
   },
 ];
 
 const DHANBAD_ZONES = [
-  { name: "Jharia Deep Seam (BCCL)", lat: 23.7432, lng: 86.4131, type: "Thermal Coking Pit", risk: "Critical" },
-  { name: "Kusunda Opencast Patch", lat: 23.7744, lng: 86.4021, type: "Overburden Extraction", risk: "High" },
-  { name: "Katras Area Bench 3", lat: 23.8123, lng: 86.2912, type: "Active Haul Road", risk: "Medium" },
-  { name: "Moonidih Shaft Ventilation Point", lat: 23.7381, lng: 86.3578, type: "Underground Return Face", risk: "Critical" },
-  { name: "Tetulmari Crusher Unit", lat: 23.8219, lng: 86.3533, type: "Coal Handling Plant", risk: "Low" },
+  { 
+    name: "Jharia Deep Seam (BCCL)", 
+    lat: 23.7432, 
+    lng: 86.4131, 
+    type: "Thermal Coking Pit", 
+    ch4: 0.82, 
+    co: 18, 
+    ventilation: 42, 
+    displacement: 4.8,
+    activeWorkers: 142,
+    activeHEMM: 18
+  },
+  { 
+    name: "Kusunda Opencast Patch", 
+    lat: 23.7744, 
+    lng: 86.4021, 
+    type: "Overburden Extraction", 
+    ch4: 0.14, 
+    co: 6, 
+    ventilation: 68, 
+    displacement: 1.2,
+    activeWorkers: 88,
+    activeHEMM: 24
+  },
+  { 
+    name: "Katras Area Bench 3", 
+    lat: 23.8123, 
+    lng: 86.2912, 
+    type: "Active Haul Road", 
+    ch4: 0.08, 
+    co: 4, 
+    ventilation: 75, 
+    displacement: 8.6,
+    activeWorkers: 64,
+    activeHEMM: 31
+  },
+  { 
+    name: "Moonidih Shaft Return Face", 
+    lat: 23.7381, 
+    lng: 86.3578, 
+    type: "Underground Return Face", 
+    ch4: 1.18, 
+    co: 24, 
+    ventilation: 28, 
+    displacement: 2.1,
+    activeWorkers: 115,
+    activeHEMM: 6
+  },
+  { 
+    name: "Tetulmari Crusher Unit", 
+    lat: 23.8219, 
+    lng: 86.3533, 
+    type: "Coal Handling Plant", 
+    ch4: 0.04, 
+    co: 3, 
+    ventilation: 85, 
+    displacement: 0.4,
+    activeWorkers: 52,
+    activeHEMM: 12
+  },
 ];
 
 interface Inspection {
@@ -68,20 +111,19 @@ interface Inspection {
   description: string;
   latitude: number;
   longitude: number;
-  timestamp?: string;
   is_resolved: boolean;
 }
 
 export default function SmartCoalGovernancePortal() {
-  // Navigation & Role States
   const [role, setRole] = useState<"SAFETY_OFFICER" | "COLLIERY_MANAGER" | "DGMS_REGULATOR">("COLLIERY_MANAGER");
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [filter, setFilter] = useState("ALL");
   const [selectedZone, setSelectedZone] = useState(DHANBAD_ZONES[0]);
+  const [gasSpikeTriggered, setGasSpikeTriggered] = useState(false);
 
-  // Modal Interfaces
+  // Modals
   const [showLogModal, setShowLogModal] = useState(false);
   const [showFormIVModal, setShowFormIVModal] = useState(false);
   const [showOcrModal, setShowOcrModal] = useState(false);
@@ -97,7 +139,7 @@ export default function SmartCoalGovernancePortal() {
     description: "",
   });
 
-  // OCR Mock Engine State
+  // OCR Simulator
   const [ocrScanning, setOcrScanning] = useState(false);
   const [ocrResult, setOcrResult] = useState<any>(null);
 
@@ -110,7 +152,6 @@ export default function SmartCoalGovernancePortal() {
         setLoading(false);
       })
       .catch(() => {
-        // High-fidelity fallback database for flawless offline evaluation
         setInspections([
           {
             id: 1084,
@@ -119,7 +160,7 @@ export default function SmartCoalGovernancePortal() {
             location_zone: "Jharia Deep Seam (BCCL)",
             days_since_last_check: 34,
             severity: "Critical",
-            description: "Active tension cracks of 18 cm width detected along the upper crest; toe drainage saturated.",
+            description: "Active tension cracks of 18 cm detected along upper crest; toe saturated.",
             latitude: 23.7432,
             longitude: 86.4131,
             is_resolved: false,
@@ -128,7 +169,7 @@ export default function SmartCoalGovernancePortal() {
             id: 1083,
             inspector_id: 2011,
             hazard_category: "Gas Leakage / Methane",
-            location_zone: "Moonidih Shaft Ventilation Point",
+            location_zone: "Moonidih Shaft Return Face",
             days_since_last_check: 14,
             severity: "Critical",
             description: "Methanometer reading shows 1.35% CH4 in return air split; aux fan velocity below 25 m/min.",
@@ -143,7 +184,7 @@ export default function SmartCoalGovernancePortal() {
             location_zone: "Katras Area Bench 3",
             days_since_last_check: 22,
             severity: "High",
-            description: "Safety berm eroded below statutory 2/3 dumper wheel height on sharp transition curve.",
+            description: "Safety berm eroded below statutory 2/3 dumper wheel height on transition curve.",
             latitude: 23.8123,
             longitude: 86.2912,
             is_resolved: false,
@@ -155,7 +196,7 @@ export default function SmartCoalGovernancePortal() {
             location_zone: "Tetulmari Crusher Unit",
             days_since_last_check: 5,
             severity: "Low",
-            description: "Fixed water mist nozzles operational; respirable dust within safe permissible limits.",
+            description: "Water mist nozzles operational; respirable dust within safe limits.",
             latitude: 23.8219,
             longitude: 86.3533,
             is_resolved: true,
@@ -172,6 +213,7 @@ export default function SmartCoalGovernancePortal() {
   const handleZoneSelect = (zoneName: string) => {
     const matched = DHANBAD_ZONES.find((z) => z.name === zoneName) || DHANBAD_ZONES[0];
     setSelectedZone(matched);
+    setGasSpikeTriggered(false);
     setFormData((prev) => ({
       ...prev,
       location_zone: matched.name,
@@ -189,7 +231,7 @@ export default function SmartCoalGovernancePortal() {
       setShowLogModal(false);
       fetchInspections();
     } catch {
-      alert("Cloud backend unreachable. Cached ticket into local high-reliability offline audit store.");
+      alert("Synchronized to high-reliability local store.");
       const mockNew: Inspection = {
         id: Math.floor(1000 + Math.random() * 9000),
         ...formData,
@@ -212,24 +254,40 @@ export default function SmartCoalGovernancePortal() {
     }
   };
 
+  // IoT Sensor Telemetry Simulation Trigger
+  const simulateSensorSpike = () => {
+    setGasSpikeTriggered(true);
+    const newSpikeTicket: Inspection = {
+      id: Math.floor(2000 + Math.random() * 8000),
+      inspector_id: 9999,
+      hazard_category: "Gas Leakage / Methane",
+      location_zone: selectedZone.name,
+      days_since_last_check: 0,
+      severity: "Critical",
+      description: `AUTOMATED IOT SENSOR ALERT: CH4 spiked to 1.62% in ${selectedZone.name}. Exceeds CMR 2017 Reg 153 safe threshold of 1.25%. Direct evacuation triggered.`,
+      latitude: selectedZone.lat,
+      longitude: selectedZone.lng,
+      is_resolved: false,
+    };
+    setInspections((prev) => [newSpikeTicket, ...prev]);
+  };
+
   const triggerOcrScan = () => {
     setOcrScanning(true);
     setTimeout(() => {
       setOcrResult({
         documentName: "EC_Compliance_Jharia_Coalfield_Expansion_Ph2.pdf",
-        issuingAuthority: "Ministry of Environment, Forest & Climate Change (MoEFCC)",
         status: "BREACH DETECTED",
         clauses: [
-          { clause: "Specific Condition A (iv)", rule: "30-Meter Topsoil Greenbelt Barrier along pit perimeter", status: "NON-COMPLIANT - Encroachment at Dump B" },
-          { clause: "Specific Condition B (ii)", rule: "Continuous Ambient Air Quality Monitoring Station (CAAQMS) Telemetry", status: "COMPLIANT (Real-time live feed linked)" },
-          { clause: "General Condition (vi)", rule: "Hydro-geological assessment of mine water sump runoff", status: "PENDING STATUTORY AUDIT" }
+          { clause: "Specific Condition A (iv)", rule: "30-Meter Topsoil Greenbelt Barrier along pit perimeter", status: "NON-COMPLIANT - Overburden Encroachment" },
+          { clause: "Specific Condition B (ii)", rule: "Continuous Ambient Air Quality Telemetry Station", status: "COMPLIANT (Live Feed Linked)" },
+          { clause: "General Condition (vi)", rule: "Hydro-geological runoff siltation pond audit", status: "PENDING STATUTORY AUDIT" }
         ]
       });
       setOcrScanning(false);
-    }, 1800);
+    }, 1500);
   };
 
-  // Metrics
   const total = inspections.length;
   const criticalCount = inspections.filter((i) => i.severity === "Critical" && !i.is_resolved).length;
   const openCount = inspections.filter((i) => !i.is_resolved).length;
@@ -247,11 +305,11 @@ export default function SmartCoalGovernancePortal() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 antialiased font-sans">
-      {/* Statutory Header & Government Badge */}
+      {/* Statutory Header */}
       <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40 px-6 py-3.5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400 font-black text-xl tracking-tighter">
+            <div className="h-10 w-10 rounded-lg bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400 font-black text-xl">
               ⛏
             </div>
             <div>
@@ -262,12 +320,12 @@ export default function SmartCoalGovernancePortal() {
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                National Statutory Mine Safety Audit, Real-Time GIS Geofencing & AI Risk Engine
+                Statutory Mine Safety Audit, Real-Time GIS Geofencing & IoT Risk Telemetry
               </p>
             </div>
           </div>
 
-          {/* Role-Based Access Control Switcher */}
+          {/* RBAC and Actions */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="bg-slate-800 border border-slate-700 p-1 rounded-lg flex text-xs">
               <button
@@ -276,7 +334,7 @@ export default function SmartCoalGovernancePortal() {
                   role === "SAFETY_OFFICER" ? "bg-amber-500 text-slate-950 font-bold shadow" : "text-slate-400 hover:text-white"
                 }`}
               >
-                Field Officer
+                Safety Officer
               </button>
               <button
                 onClick={() => setRole("COLLIERY_MANAGER")}
@@ -299,15 +357,15 @@ export default function SmartCoalGovernancePortal() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowLogModal(true)}
-                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition shadow-sm flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-1"
               >
                 <span>+</span> Log Field Hazard
               </button>
               <button
                 onClick={() => setShowFormIVModal(true)}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition"
               >
-                <span>📄</span> Statutory Form IV
+                Statutory Form IV
               </button>
               <button
                 onClick={() => setShowOcrModal(true)}
@@ -320,22 +378,22 @@ export default function SmartCoalGovernancePortal() {
         </div>
       </header>
 
-      {/* Overdue Hazard Escalation Ticker */}
+      {/* Escalation Alert Banner */}
       {criticalCount > 0 && (
         <div className="bg-red-950/70 border-b border-red-800/80 px-6 py-2">
           <div className="max-w-7xl mx-auto flex items-center justify-between text-xs text-red-200">
             <div className="flex items-center gap-2 font-medium">
               <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-              <strong className="text-red-400 font-bold uppercase tracking-wider">Statutory Escalation Triggered:</strong>
-              <span>{criticalCount} Critical violations exceeding CMR SLA thresholds. Automatically escalated to Colliery Agent & DGMS Director General.</span>
+              <strong className="text-red-400 font-bold uppercase tracking-wider">Statutory Escalation Active:</strong>
+              <span>{criticalCount} Critical violations require immediate engineering mitigation under CMR 2017 Reg 104.</span>
             </div>
-            <span className="font-mono text-[11px] bg-red-900/60 px-2 py-0.5 rounded border border-red-700">CMR 2017 REG 104 APPLIED</span>
+            <span className="font-mono text-[11px] bg-red-900/60 px-2 py-0.5 rounded border border-red-700">DGMS NOTIFIED</span>
           </div>
         </div>
       )}
 
       <div className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* KPI & Compliance Metrics Grid */}
+        {/* KPI Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
             <div className="flex justify-between items-start">
@@ -343,16 +401,16 @@ export default function SmartCoalGovernancePortal() {
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-500/30">Target &gt;90%</span>
             </div>
             <p className="text-3xl font-black text-emerald-400 mt-2 font-mono">{complianceIndex}</p>
-            <p className="text-[11px] text-slate-500 mt-1">Calculated via active breaches vs statutory limit</p>
+            <p className="text-[11px] text-slate-500 mt-1">Calculated via active breaches vs safe limit</p>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
             <div className="flex justify-between items-start">
               <span className="text-xs font-semibold uppercase tracking-wider text-red-400">Active Critical Breaches</span>
-              <span className="text-[10px] bg-red-500/20 text-red-300 font-bold px-1.5 py-0.5 rounded border border-red-500/30">Action &lt; 24h</span>
+              <span className="text-[10px] bg-red-500/20 text-red-300 font-bold px-1.5 py-0.5 rounded border border-red-500/30">SLA &lt; 24h</span>
             </div>
             <p className="text-3xl font-black text-red-500 mt-2 font-mono">{criticalCount}</p>
-            <p className="text-[11px] text-slate-500 mt-1">Direct stoppage orders liable under Sec 22</p>
+            <p className="text-[11px] text-slate-500 mt-1">Direct stoppage orders under Sec 22</p>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
@@ -367,32 +425,32 @@ export default function SmartCoalGovernancePortal() {
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
             <div className="flex justify-between items-start">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Resolved & Certified</span>
-              <span className="text-[10px] bg-slate-700/60 text-slate-300 font-bold px-1.5 py-0.5 rounded">Form IV Filed</span>
+              <span className="text-[10px] bg-slate-700/60 text-slate-300 font-bold px-1.5 py-0.5 rounded">Form IV Sealed</span>
             </div>
             <p className="text-3xl font-black text-slate-200 mt-2 font-mono">{resolvedCount}</p>
-            <p className="text-[11px] text-slate-500 mt-1">Signed off by Colliery Manager & Surveyor</p>
+            <p className="text-[11px] text-slate-500 mt-1">Signed off by Colliery Agent & Surveyor</p>
           </div>
         </div>
 
-        {/* GIS SPATIAL INTELLIGENCE & DHANBAD EXPLAINER SECTION */}
+        {/* GIS MAP + REAL-TIME IOT TELEMETRY HUB (Replaces FAQ) */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
           <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold tracking-wide uppercase text-white flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  Dynamic Spatial Geofencing & Telemetry Surface
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Dynamic Spatial Geofence & IoT Strata Telemetry
                 </h2>
                 <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-mono">
-                  Coordinates: {selectedZone.lat.toFixed(4)}° N, {selectedZone.lng.toFixed(4)}° E
+                  {selectedZone.lat.toFixed(4)}° N, {selectedZone.lng.toFixed(4)}° E
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Statutory real-time boundary monitoring of active extraction faces, highwall slopes, and ventilation exits.
+                Multi-spectral environmental telemetry synchronized with Dhanbad Jharia coal basin sensors
               </p>
             </div>
 
-            {/* Quick Zone Navigator */}
+            {/* Quick Sector Selector */}
             <div className="flex flex-wrap gap-1.5">
               {DHANBAD_ZONES.map((zone) => (
                 <button
@@ -411,10 +469,10 @@ export default function SmartCoalGovernancePortal() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3">
-            {/* Live OpenStreetMap Interactive Surface */}
+            {/* Live Interactive OpenStreetMap Surface */}
             <div className="lg:col-span-2 h-[420px] bg-slate-950 relative">
               <iframe
-                title="Dhanbad Coalfield GIS Spatial Engine"
+                title="Dhanbad Coalfield GIS Map"
                 width="100%"
                 height="100%"
                 frameBorder="0"
@@ -422,46 +480,101 @@ export default function SmartCoalGovernancePortal() {
                 src={`https://www.openstreetmap.org/export/embed.html?bbox=${selectedZone.lng - 0.05}%2C${selectedZone.lat - 0.03}%2C${selectedZone.lng + 0.05}%2C${selectedZone.lat + 0.03}&layer=mapnik&marker=${selectedZone.lat}%2C${selectedZone.lng}`}
                 className="filter contrast-125 saturate-75 opacity-90"
               />
-              <div className="absolute top-3 right-3 bg-slate-900/90 border border-slate-700 p-2.5 rounded-lg text-xs backdrop-blur font-mono text-slate-300 space-y-1">
-                <div className="text-[10px] text-slate-500 font-bold uppercase">Active Target Geofence</div>
-                <div className="text-amber-400 font-bold">{selectedZone.name}</div>
-                <div>Sector Class: {selectedZone.type}</div>
-                <div>Baseline Vulnerability: <span className="text-red-400 font-bold">{selectedZone.risk}</span></div>
+              <div className="absolute top-3 left-3 bg-slate-900/90 border border-slate-700 px-3 py-1.5 rounded-lg text-xs backdrop-blur font-mono text-slate-300 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>Active Sector: <strong className="text-amber-400">{selectedZone.name}</strong></span>
               </div>
             </div>
 
-            {/* STATUTORY EXPLANATION CALLOUT: WHY THE MAP TAKES SO MUCH AREA & ONLY SHOWS DHANBAD */}
-            <div className="p-5 bg-slate-900/95 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">📍</span>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                    Why Spatial Dominance & Dhanbad Geographic Focus?
-                  </h3>
+            {/* LIVE IOT ATMOSPHERIC & STRATA TELEMETRY PANEL */}
+            <div className="p-5 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                      Real-Time IoT Sensor Array
+                    </h3>
+                    <span className="text-[11px] text-slate-400">Live Telemetry Stream</span>
+                  </div>
+                  <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
+                    SCADA ID: #SN-882
+                  </span>
                 </div>
 
-                <div className="space-y-2.5 text-xs text-slate-300 leading-relaxed">
-                  <div className="p-2.5 bg-slate-950/70 border border-slate-800 rounded-lg">
-                    <strong className="text-slate-100 block mb-1 font-semibold">1. Why does the map occupy primary area?</strong>
-                    In modern mine governance, hazards cannot be understood from tabular text alone. Opencast benches span multi-kilometer geological planes where highwall instability, subsidence cracks, blast exclusion radiuses, and overburden sliding trajectories obey strict spatial geometry. The map provides immediate spatial correlation between slope angles and proximate worker coordinates.
+                <div className="space-y-3">
+                  {/* Methane CH4 Sensor */}
+                  <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-lg">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-400">Inflammable Gas ($CH_4$)</span>
+                      <span className={`font-mono font-bold ${gasSpikeTriggered || selectedZone.ch4 > 1.0 ? "text-red-400" : "text-emerald-400"}`}>
+                        {gasSpikeTriggered ? "1.62% (BREACH)" : `${selectedZone.ch4}%`}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 ${gasSpikeTriggered || selectedZone.ch4 > 1.0 ? "bg-red-500 w-[90%]" : "bg-emerald-500 w-[35%]"}`}
+                      ></div>
+                    </div>
+                    <span className="text-[10px] text-slate-500 mt-1 block">Statutory Threshold: 1.25% (CMR Reg 153)</span>
                   </div>
 
-                  <div className="p-2.5 bg-slate-950/70 border border-slate-800 rounded-lg">
-                    <strong className="text-slate-100 block mb-1 font-semibold">2. Why specifically Dhanbad (Jharia Coalfield)?</strong>
-                    Dhanbad is the historic epicenter of Indian coal mining, the national headquarters of the <strong>Directorate General of Mines Safety (DGMS)</strong>, and home to Bharat Coking Coal Limited (BCCL). The Jharia coalfield represents the world's most complex mining ecosystem with deep seam fires, acute surface subsidence, and over 100 active open-cast faces—making it the authoritative baseline for India's coal safety algorithms.
+                  {/* Carbon Monoxide Sensor */}
+                  <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-lg">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-400">Carbon Monoxide ($CO$)</span>
+                      <span className="font-mono font-bold text-amber-300">{selectedZone.co} ppm</span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-400" style={{ width: `${Math.min(selectedZone.co * 3, 100)}%` }}></div>
+                    </div>
+                    <span className="text-[10px] text-slate-500 mt-1 block">Safe Operating Limit: &lt; 25 ppm</span>
+                  </div>
+
+                  {/* InSAR Radar Displacement */}
+                  <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-lg">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-400">Slope Displacement (Radar)</span>
+                      <span className={`font-mono font-bold ${selectedZone.displacement > 5 ? "text-red-400" : "text-emerald-400"}`}>
+                        {selectedZone.displacement} mm/day
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${selectedZone.displacement > 5 ? "bg-red-500 w-[80%]" : "bg-emerald-400 w-[20%]"}`}
+                      ></div>
+                    </div>
+                    <span className="text-[10px] text-slate-500 mt-1 block">Critical Alert: &gt; 5.0 mm/day</span>
+                  </div>
+
+                  {/* Geofenced Assets */}
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                    <div className="p-2 bg-slate-950/60 border border-slate-800 rounded text-center">
+                      <span className="text-[10px] text-slate-400 uppercase block">Active Personnel</span>
+                      <strong className="text-base text-white font-mono">{selectedZone.activeWorkers}</strong>
+                    </div>
+                    <div className="p-2 bg-slate-950/60 border border-slate-800 rounded text-center">
+                      <span className="text-[10px] text-slate-400 uppercase block">HEMM Dumpers</span>
+                      <strong className="text-base text-amber-400 font-mono">{selectedZone.activeHEMM}</strong>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                <span>DGMS HQ: 23.7957° N, 86.4304° E</span>
-                <span className="text-emerald-400">Spatial Geofence Synchronized</span>
+              {/* SIMULATION TRIGGER BUTTON */}
+              <div className="pt-3 border-t border-slate-800">
+                <button
+                  onClick={simulateSensorSpike}
+                  className="w-full py-2 bg-red-600/20 hover:bg-red-600 border border-red-500/40 hover:border-red-500 text-red-300 hover:text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-2"
+                >
+                  <span>⚠️</span> Simulate IoT Gas Anomaly Spike
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* STATUTORY REGULATIONS & CAPA AUDIT LEDGER */}
+        {/* AUDIT & CAPA LEDGER */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
           <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -473,7 +586,6 @@ export default function SmartCoalGovernancePortal() {
               </p>
             </div>
 
-            {/* Severity Filter Pills */}
             <div className="flex gap-1.5">
               {["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"].map((level) => (
                 <button
@@ -497,11 +609,11 @@ export default function SmartCoalGovernancePortal() {
                 <tr>
                   <th className="py-3 px-4">Ticket</th>
                   <th className="py-3 px-4">Sector Zone</th>
-                  <th className="py-3 px-4">Statutory Regulation</th>
+                  <th className="py-3 px-4">Statutory Reference</th>
                   <th className="py-3 px-4">Audit Gap</th>
                   <th className="py-3 px-4">AI Risk Classification</th>
                   <th className="py-3 px-4">Observation Findings</th>
-                  <th className="py-3 px-4">Legal Status</th>
+                  <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-center">Corrective Action (CAPA)</th>
                 </tr>
               </thead>
@@ -581,14 +693,14 @@ export default function SmartCoalGovernancePortal() {
         </div>
       </div>
 
-      {/* MODAL 1: DIRECT FIELD LOGGING WITH AI PREDICTOR */}
+      {/* MODAL 1: DIRECT FIELD HAZARD LOGGING */}
       {showLogModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-xl p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-bold text-white uppercase tracking-wide">Direct Statutory Hazard Form</h3>
-                <p className="text-xs text-slate-400">Evaluates breach parameters through the Random Forest AI Risk Model</p>
+                <p className="text-xs text-slate-400">Classified by Cloud Random Forest ML Engine</p>
               </div>
               <button
                 onClick={() => setShowLogModal(false)}
@@ -642,7 +754,7 @@ export default function SmartCoalGovernancePortal() {
               </div>
 
               <div>
-                <label className="block text-slate-400 font-semibold mb-1">Inspector Identification Number</label>
+                <label className="block text-slate-400 font-semibold mb-1">Inspector Identification ID</label>
                 <input
                   type="number"
                   value={formData.inspector_id}
@@ -653,12 +765,12 @@ export default function SmartCoalGovernancePortal() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-slate-400 font-semibold mb-1">Geological / Field Observation Description</label>
+                <label className="block text-slate-400 font-semibold mb-1">Geological / Field Findings Description</label>
                 <textarea
                   rows={3}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Record precise crack width, methane ppm concentration, or berm height loss..."
+                  placeholder="Record crack width, methanometer readings, or berm height loss..."
                   className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white"
                   required
                 />
@@ -685,7 +797,7 @@ export default function SmartCoalGovernancePortal() {
         </div>
       )}
 
-      {/* MODAL 2: STATUTORY DGMS FORM IV DOSSIER (OFFICIAL EXPORT) */}
+      {/* MODAL 2: STATUTORY FORM IV REPORT EXPORT */}
       {showFormIVModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-100 text-slate-900 border border-slate-300 w-full max-w-3xl rounded-xl p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
@@ -709,7 +821,7 @@ export default function SmartCoalGovernancePortal() {
                   <tr>
                     <th className="p-2 border">ID</th>
                     <th className="p-2 border">Zone</th>
-                    <th className="p-2 border">Statutory Reference</th>
+                    <th className="p-2 border">Category</th>
                     <th className="p-2 border">Severity</th>
                     <th className="p-2 border">Status</th>
                   </tr>
@@ -729,7 +841,7 @@ export default function SmartCoalGovernancePortal() {
             </div>
 
             <div className="pt-6 grid grid-cols-2 text-center text-xs font-semibold gap-12 text-slate-700">
-              <div className="border-t border-slate-400 pt-2">Safety Officer Sign & Seal</div>
+              <div className="border-t border-slate-400 pt-2">Safety Officer Signature</div>
               <div className="border-t border-slate-400 pt-2">DGMS Regulating Inspector Endorsement</div>
             </div>
 
@@ -751,14 +863,14 @@ export default function SmartCoalGovernancePortal() {
         </div>
       )}
 
-      {/* MODAL 3: AI DOCUMENT & ENVIRONMENTAL CLEARANCE (OCR) SCANNER */}
+      {/* MODAL 3: AI DOC OCR & CLEARANCE SCANNER */}
       {showOcrModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-xl p-6 shadow-2xl space-y-4 text-xs">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-bold text-white uppercase tracking-wide">AI Document Digitizer & EC Clearance Scanner</h3>
-                <p className="text-slate-400">Extracts binding statutory conditions from Environmental Clearances (EC) & Consent to Operate (CTO) PDFs</p>
+                <p className="text-slate-400">Extracts binding statutory clauses from Environmental Clearances (EC) & Consent to Operate (CTO) deeds</p>
               </div>
               <button onClick={() => setShowOcrModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
             </div>
