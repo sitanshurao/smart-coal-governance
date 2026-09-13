@@ -1,13 +1,8 @@
-// frontend/src/app/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import axios from "axios";
-import dynamic from "next/dynamic";
 
-const HazardMap = dynamic(() => import("@/components/HazardMap"), { ssr: false });
-
-// Defaults to your future live Render backend URL, falls back to local
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://smart-coal-governance.onrender.com";
 
 interface Inspection {
@@ -103,10 +98,24 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* GIS Mapping */}
+      {/* GIS Mapping Section */}
       <section className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-        <h2 className="text-base font-bold text-slate-900 mb-1">Spatial Violation Plot</h2>
-        <HazardMap inspections={inspections} />
+        <div className="mb-3">
+          <h2 className="text-base font-bold text-slate-900">Mine Hazard GIS Spatial Plot</h2>
+          <p className="text-xs text-slate-500">
+            Live topographic view centered on active Dhanbad/Jharia mining belts (23.7957° N, 86.4304° E).
+          </p>
+        </div>
+        <div className="h-[360px] w-full rounded-lg overflow-hidden border border-slate-300 shadow-inner">
+          <iframe
+            title="Coal Mine GIS Map"
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            scrolling="no"
+            src="https://www.openstreetmap.org/export/embed.html?bbox=86.35%2C23.75%2C86.50%2C23.85&amp;layer=mapnik&amp;marker=23.7957%2C86.4304"
+          />
+        </div>
       </section>
 
       {/* Filter Tabs */}
@@ -134,7 +143,7 @@ export default function Dashboard() {
               <th className="py-3 px-4">Category</th>
               <th className="py-3 px-4">Days Overdue</th>
               <th className="py-3 px-4">AI Severity</th>
-              <th className="py-3 px-4">Description</th>
+              <th className="py-3 px-4">Coordinates</th>
               <th className="py-3 px-4">Status</th>
               <th className="py-3 px-4 text-center">Action</th>
             </tr>
@@ -158,21 +167,31 @@ export default function Dashboard() {
                   <td className="py-3 px-4">{item.hazard_category}</td>
                   <td className="py-3 px-4">{item.days_since_last_check} d</td>
                   <td className="py-3 px-4">
-                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 border">
+                    <span
+                      className={`inline-block px-2.5 py-0.5 rounded text-xs font-semibold ${
+                        item.severity === "Critical"
+                          ? "bg-red-100 text-red-800 border border-red-200"
+                          : item.severity === "High"
+                          ? "bg-amber-100 text-amber-800 border border-amber-200"
+                          : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                      }`}
+                    >
                       {item.severity}
                     </span>
                   </td>
-                  <td className="py-3 px-4 truncate max-w-xs">{item.description}</td>
+                  <td className="py-3 px-4 text-xs font-mono text-slate-500">
+                    {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}
+                  </td>
                   <td className="py-3 px-4">
                     <span className={`text-xs font-semibold ${item.is_resolved ? "text-green-600" : "text-rose-600"}`}>
-                      {item.is_resolved ? "Closed" : "Active"}
+                      {item.is_resolved ? "Resolved" : "Open Breach"}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
                     {!item.is_resolved && (
                       <button
                         onClick={() => resolveTicket(item.id)}
-                        className="px-2.5 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-500"
+                        className="px-2.5 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-500 transition"
                       >
                         Close CAPA
                       </button>
