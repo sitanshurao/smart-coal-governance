@@ -1,0 +1,30 @@
+﻿# Python Virtual Environments & Cache
+venv/
+*/venv/
+__pycache__/
+*/__pycache__/
+*.pyc
+*.db
+*.sqlite3
+
+# Node & Next.js Builds
+node_modules/
+*/node_modules/
+.next/
+*/.next/
+out/
+*/out/
+
+# Flutter / Dart Builds
+.dart_tool/
+*/.dart_tool/
+build/
+*/build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE & System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
